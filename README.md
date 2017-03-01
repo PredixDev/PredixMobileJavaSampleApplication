@@ -26,7 +26,7 @@ Gradle
 
 The reference application uses Gradle to manage its dependencies, execute builds and create binaries that can be used as installers for a given OS.  For more information about how Gradle works and how Java applications are managed with it please visit the official Gradle page (https://docs.gradle.org/2.13/userguide/userguide.html)
 
-This means if your IDE does not bundle Gradle you will need to install it to use the reference application.
+The sample application bundles the Gradle wrapper with the project.  This means all you need is the Java 8 JRE to run the project and you don't need to install Gradle.  However if you wish to use a new version of Gradle or changes some of the properties you will need to install Gradle for development.  Please visit the [Gradle Wrapper](https://docs.gradle.org/current/userguide/gradle_wrapper.html) page for more information.
 
 JavaFX 8
 ----------
