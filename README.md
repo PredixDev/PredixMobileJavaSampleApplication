@@ -95,11 +95,11 @@ logging_level=error
 
 Using gradle you can simple issue gradle commands from the command line to run the application.
 
-####Mac/Linux:
+#### Mac/Linux:
 ```
 ./gradlew run
 ```
-####Windows:
+#### Windows:
 ```
 gradle.bat run
 ```
@@ -146,7 +146,7 @@ Example installer
 This example includes a very basic way to generate an Installer you could use to distribute your application for Mac, Windows, Linux, etc...  The included installer is just an example and is not required to be used if you want to distribute your application using another install builder like install4j (http://www.ej-technologies.com/products/install4j/overview.html) or lzPack (http://izpack.org/).  This is simply a quick and dirty example to show what is possible.
 
 to use the example installer simply execute the jfxNative task from your IDE or using the Gradle command line.  Here is an example of executing the installer task using Gradle in the command line.
-#####Mac:
+##### Mac:
 ```
 ./gradlew jfxNative
 ```
@@ -156,7 +156,7 @@ On Mac this will produce a DMG file that can be used to install the application 
 
 This example does not deal with signing the MacOS DMG or the application.  For more on how to sign your DMG and APP file please visit Apple's documentation on signing (https://developer.apple.com/library/content/technotes/tn2206/_index.html).  To integrate signing into the jfxNative Gradle Plugin please visit (https://github.com/FibreFoX/javafx-gradle-plugin)
 
-#####Windows:
+##### Windows:
 ```
 gradle.bat jfxNative
 ```
