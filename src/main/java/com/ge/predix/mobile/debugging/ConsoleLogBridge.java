@@ -9,6 +9,6 @@ package com.ge.predix.mobile.debugging;
  */
 public class ConsoleLogBridge {
     public void log(String text) {
-        System.out.println(text);
+        System.out.println("\u001B[33m" + text + "\u001B[0m");
     }
 }

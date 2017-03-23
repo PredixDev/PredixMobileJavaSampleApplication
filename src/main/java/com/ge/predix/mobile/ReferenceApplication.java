@@ -4,9 +4,11 @@ import com.ge.predix.mobile.core.AuthHandler;
 import com.ge.predix.mobile.core.MobileManager;
 import com.ge.predix.mobile.core.PredixMobileConfiguration;
 import com.ge.predix.mobile.core.ViewInterface;
+import com.ge.predix.mobile.core.notifications.InitialReplicationCompleteNotification;
 import com.ge.predix.mobile.exceptions.InitializationException;
 import com.ge.predix.mobile.platform.PlatformContext;
 import com.ge.predix.mobile.platform.WindowView;
+import com.google.common.eventbus.Subscribe;
 import de.codecentric.centerdevice.MenuToolkit;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -158,10 +160,16 @@ public class ReferenceApplication extends Application {
             loadProxyIfNeeded();
             try {
                 mobileManager.start();
+                mobileManager.getNotificationRegistrar().registerListener(this);
             } catch (InitializationException e) {
                 e.printStackTrace();
             }
         }).start();
+    }
+
+    @Subscribe
+    public void listenForInitialReplicationComplete(InitialReplicationCompleteNotification notification) {
+        System.out.println("\u001B[33m" + "Received replication complete notification" + "\u001B[0m");
     }
 
     private void loadProxyIfNeeded() {
