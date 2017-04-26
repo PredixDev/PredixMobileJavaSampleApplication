@@ -11,7 +11,7 @@ buildscript {
 }
 
 group 'com.ge.predix'
-version '1.0.0'
+version '1.1.1'
 
 apply plugin: 'java'
 apply plugin: 'idea'
@@ -19,7 +19,11 @@ apply plugin: 'application'
 apply plugin: 'javafx-gradle-plugin'
 
 mainClassName = "com.ge.predix.mobile.ReferenceApplication"
-applicationDefaultJvmArgs = ["-Djava.net.useSystemProxies=true", "-Xdock:icon=src/main/resources/icon.png", "-Xdock:name=\"MFL Reference Application\""]
+if (OperatingSystem.current().isMacOsX()) {
+    applicationDefaultJvmArgs = ["-Djava.net.useSystemProxies=true", "-Xdock:icon=src/main/resources/icon.png", "-Xdock:name=\"MFL Reference Application\""]
+} else {
+    applicationDefaultJvmArgs = ["-Djava.net.useSystemProxies=true"]
+}
 def vendorName = "GE Digital"
 
 sourceCompatibility = 1.8
@@ -85,7 +89,7 @@ jfx {
     if (OperatingSystem.current().isMacOsX()) {
         bundler = "dmg"
         bundleArguments = [icon : 'src/main/resources/icon.icns', signBundle : false]
-    } else if (OperatingSystem.current().isMacOsX()) {
+    } else if (OperatingSystem.current().isWindows()) {
         bundler = "exe"
         bundleArguments = [icon : 'src/main/resources/icon.ico']
     }
