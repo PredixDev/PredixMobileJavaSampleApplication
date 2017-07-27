@@ -12,9 +12,9 @@ The Predix Mobile Java application is an example of how the [Predix Mobile Java 
 This reference application provides the following:
 
 - A container for a web application hosted with the Predix Mobile Service
-- A way Authenticate with a UAA instance bound to a Predix Mobile Service
+- A way to Authenticate with a UAA instance bound to a Predix Mobile Service
 - A way to run the container application on platforms that support Java
-- An installer example using a gradle task that creates an installer on the executed platform (Windows and Mac only)
+- An installer example using a gradle task that creates a platfrom installer for the running platform (Windows and Mac only)
 
 Technology
 ----------
