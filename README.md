@@ -7,7 +7,7 @@
 Overview
 ----------
 
-The Predix Mobile Java application is an example of how the [Predix Mobile Java SDK](https://github.com/PredixDev/PredixMobileJavaSDK) can be used to create a thin client for Mac, Windows, Linux or any other operating system that Java supports.  For an overview of Predix Mobile development please visit the [SDK repo](https://github.com/PredixDev/PredixMobileSDK) and [wiki](https://github.com/PredixDev/PredixMobileSDK/wiki).
+The Predix Mobile Java application is an example of how the [Predix Mobile Java SDK](https://github.com/PredixDev/PredixMobileJavaSDK) can be used to create a think client for Mac, Windows, Linux or any other operating system that Java supports.  For an overview of Predix Mobile development please visit the [SDK repo](https://github.com/PredixDev/PredixMobileSDK) and [wiki](https://github.com/PredixDev/PredixMobileSDK/wiki).
 
 This reference application provides the following:
 
