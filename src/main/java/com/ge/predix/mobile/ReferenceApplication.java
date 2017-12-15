@@ -155,7 +155,6 @@ public class ReferenceApplication extends Application {
         };
 
         mobileManager.setViewInterface(dependencies);
-        PredixMobileConfiguration.authorizationCheckValidStatusCodes = Arrays.asList(200, 404, 201, 202, 500, 401, 302, 301);
         new Thread(() -> {
             loadProxyIfNeeded();
             try {
