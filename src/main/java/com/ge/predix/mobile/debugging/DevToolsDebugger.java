@@ -32,7 +32,7 @@ public class DevToolsDebugger {
                 JSObject window = (JSObject) engine.executeScript("window");
                 ConsoleLogBridge bridge = new ConsoleLogBridge();
                 window.setMember("logBridge", bridge);
-                engine.executeScript("origlog = console.log; console.log = function(message) { if(logBridge.log) {logBridge.log('[WebView Console Log] ' + message);} else {origlog(message);} };");
+                engine.executeScript("console.log = function(message) { logBridge.log('[WebView Console Log] ' + message); };");
             });
         } catch (Exception e) {
             e.printStackTrace();
@@ -40,6 +40,13 @@ public class DevToolsDebugger {
         }
 
         return true;
+//        //Allows logs messages to be redirected to the console output window.
+//        browser.getEngine().getLoadWorker().stateProperty().addListener((observable, oldValue, newValue) -> {
+//            System.out.println("called state change " + oldValue + " other " + newValue);
+//            if (newValue == Worker.State.SUCCEEDED) {
+//
+//            }
+//        });
     }
 
     public static boolean enableFireBugInWindowDebugger(WebEngine engine) {
