@@ -1,6 +1,7 @@
 package com.ge.predix.mobile.debugging;
 
 import com.sun.javafx.scene.web.Debugger;
+import com.sun.javafx.webkit.WebConsoleListener;
 import javafx.application.Platform;
 import javafx.scene.web.WebEngine;
 import netscape.javascript.JSObject;
@@ -28,11 +29,9 @@ public class DevToolsDebugger {
 
     public static boolean enableWebConsoleToJavaConsoleCapture(WebEngine engine) {
         try {
-            engine.documentProperty().addListener((observable, oldValue, newValue) -> {
-                JSObject window = (JSObject) engine.executeScript("window");
-                ConsoleLogBridge bridge = new ConsoleLogBridge();
-                window.setMember("logBridge", bridge);
-                engine.executeScript("console.log = function(message) { logBridge.log('[WebView Console Log] ' + message); };");
+            ConsoleLogBridge bridge = new ConsoleLogBridge();
+            WebConsoleListener.setDefaultListener((webView, message, lineNumber, sourceId) -> {
+                bridge.log("[WebView Console Log] " + message);
             });
         } catch (Exception e) {
             e.printStackTrace();
