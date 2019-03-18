@@ -3,58 +3,58 @@ package com.ge.predix.mobile;
 import com.ge.predix.mobile.logging.PredixSDKLogger;
 import com.ge.predix.mobile.platform.CustomSchemeHandler;
 import com.ge.predix.mobile.platform.WaitStateModel;
+import com.teamdev.jxbrowser.chromium.Browser;
+import com.teamdev.jxbrowser.chromium.BrowserCore;
+import com.teamdev.jxbrowser.chromium.BrowserPreferences;
+import com.teamdev.jxbrowser.chromium.internal.Environment;
+import com.teamdev.jxbrowser.chromium.javafx.BrowserView;
 import javafx.application.Platform;
 import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.layout.Pane;
 import javafx.scene.text.Text;
-import javafx.scene.web.WebView;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
-import java.io.UnsupportedEncodingException;
-import java.net.URLDecoder;
 import java.util.Map;
 
-/**
- * WindowController
- * DesktopReferenceApplication
- * <p>
- * Created by jeremyosterhoudt on 10/19/16.
- * Copyright © 2016 GE. All rights reserved.
- */
-public class WindowController implements ApplicationWindowView {
-    private WebView browser = new WebView();
+public class JXWindowController implements ApplicationWindowView {
+    private Browser browser = null;
+    private BrowserView view = null;
     private WaitStateModel waitStateModel;
     private SpinnerView spinnerView;
     private Pane rootPane;
 
-    public WindowController() {
+    public static void initWebEngine() {
+        BrowserPreferences.setChromiumSwitches("--remote-debugging-port=9222");
+        if (Environment.isMac()) {
+            BrowserCore.initialize();
+        }
+    }
+
+    public JXWindowController() {
         super();
-//        DevToolsDebugger.enableChromeRemoteDebugger(browser.getEngine(), 51742);
-//        DevToolsDebugger.enableWebConsoleToJavaConsoleCapture(browser.getEngine());
-//        DevToolsDebugger.enableFireBugInWindowDebugger(browser.getEngine());
     }
 
     public void loadURL(final String url, Map map) {
-        PredixSDKLogger.trace(this, "SDK is asking the webview to load url: = " + url);
-        Platform.runLater(() -> {
-            String loadUrl = url;
-            try {
-                //This needs to be here for windows...  Sending an un-encoded URL causes it not to be loaded from the correct path making resources images and files unavailable.
-                //TODO:  Move this into the SDK!
-                loadUrl = URLDecoder.decode(loadUrl, "UTF-8");
-            } catch (UnsupportedEncodingException e) {
-                PredixSDKLogger.warning(this, "could not remove % escapes from url string", e);
-            }
-            browser.getEngine().load(loadUrl);
+        new Thread(() -> {
+            browser = new Browser();//BrowserFactory.getBrowser();
+            PredixSDKLogger.debug("browser debug url = " + browser.getRemoteDebuggingURL());
+            view = new BrowserView(browser);
 
-            stopSpinner();
-        });
+            JXPMAPIRequestHandler jxpmapiRequestHandler = new JXPMAPIRequestHandler();
+            jxpmapiRequestHandler.addPMAPIProtocolHandler(browser.getContext());
+
+            Platform.runLater(() -> {
+                browser.loadURL(url);
+                rootPane.getChildren().addAll(view);
+                startSpinner("Syncing, please wait...");
+            });
+        }).start();
     }
 
     public void receiveAppNotification(String script) {
-        Platform.runLater(() -> browser.getEngine().executeScript(script));
+        Platform.runLater(() -> browser.executeJavaScript(script));
     }
 
     public void showDialog(String s, String s1, String s2) {
@@ -90,8 +90,6 @@ public class WindowController implements ApplicationWindowView {
 
     public void show(Pane rootPane) {
         this.rootPane = rootPane;
-        rootPane.getChildren().addAll(browser);
-        startSpinner("Syncing, please wait...");
     }
 
     private void startSpinner(String message) {

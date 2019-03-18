@@ -2,7 +2,6 @@ package com.ge.predix.mobile;
 
 import com.ge.predix.mobile.core.AuthHandler;
 import com.ge.predix.mobile.core.MobileManager;
-import com.ge.predix.mobile.core.PredixMobileConfiguration;
 import com.ge.predix.mobile.core.ViewInterface;
 import com.ge.predix.mobile.core.notifications.InitialReplicationCompleteNotification;
 import com.ge.predix.mobile.exceptions.InitializationException;
@@ -14,12 +13,7 @@ import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.Dialog;
-import javafx.scene.control.Menu;
-import javafx.scene.control.MenuBar;
-import javafx.scene.control.MenuItem;
-import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
@@ -30,7 +24,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -44,7 +37,6 @@ import java.util.Properties;
  */
 public class ReferenceApplication extends Application {
     private MobileManager mobileManager;
-    private WindowController windowView = new WindowController();
     private PreferencesController preferencesController = new PreferencesController();
     private static final String Application_Name = "MFL Reference Application";
 
@@ -58,6 +50,7 @@ public class ReferenceApplication extends Application {
 
     @Override
     public void init() throws Exception {
+        JXWindowController.initWebEngine();
         super.init();
     }
 
@@ -71,9 +64,22 @@ public class ReferenceApplication extends Application {
         primaryStage.setTitle(Application_Name);
         primaryStage.setOnCloseRequest(windowEvent -> endApplication());
         loadMenuBar(root);
+
+        AuthHandler authHandler;
+        ApplicationWindowView windowView;
+        Parameters parameters = getParameters();
+
+        if (parameters.getNamed().containsKey("chrome")) {
+            windowView = new JXWindowController();
+            authHandler = new JXAuthorizationController(stackPane);
+        } else {
+            windowView = new WindowController();
+            authHandler = new AuthorizationController(stackPane);
+        }
+
         windowView.show(stackPane);
         primaryStage.show();
-        startPredixMobile(stackPane);
+        startPredixMobile(authHandler, windowView);
     }
 
     private boolean isMac() {
@@ -132,9 +138,7 @@ public class ReferenceApplication extends Application {
         pane.setTop(menuBar);
     }
 
-    private void startPredixMobile(Pane root) {
-        AuthorizationController authorizationController = new AuthorizationController(root);
-
+    private void startPredixMobile(AuthHandler authorizationController, WindowView windowView) {
         ViewInterface dependencies = new ViewInterface() {
             public PlatformContext getContext() {
                 return new JavaPlatformContext();
@@ -227,3 +231,5 @@ public class ReferenceApplication extends Application {
         return new HashMap<String, Object>((Map) properties);
     }
 }
+
+
