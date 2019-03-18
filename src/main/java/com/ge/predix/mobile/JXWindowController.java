@@ -38,7 +38,7 @@ public class JXWindowController implements ApplicationWindowView {
 
     public void loadURL(final String url, Map map) {
         new Thread(() -> {
-            browser = new Browser();//BrowserFactory.getBrowser();
+            browser = new Browser();
             PredixSDKLogger.debug("browser debug url = " + browser.getRemoteDebuggingURL());
             view = new BrowserView(browser);
 
