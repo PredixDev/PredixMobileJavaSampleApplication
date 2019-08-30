@@ -1,91 +1,94 @@
 package com.ge.predix.mobile;
 
+import com.ge.predix.mobile.core.Platform;
 import com.ge.predix.mobile.core.PlatformImpl;
 import com.ge.predix.mobile.core.RequestProcessor;
 import com.ge.predix.mobile.logging.PredixSDKLogger;
-import com.teamdev.jxbrowser.chromium.*;
-import com.teamdev.jxbrowser.chromium.javafx.DefaultNetworkDelegate;
+import com.ge.predix.mobile.network.URLResponse;
+import com.teamdev.jxbrowser.engine.Engine;
+import com.teamdev.jxbrowser.net.*;
+import com.teamdev.jxbrowser.net.callback.InterceptRequestCallback;
 
+import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class JXPMAPIRequestHandler {
 
-    private Map<Long, UploadData> jxPUTDeleteBugFix = new HashMap<>();
-
-    public void addPMAPIProtocolHandler(BrowserContext context) {
-        RequestProcessor requestProcessor = new RequestProcessor(PlatformImpl.getInstance());
-        ProtocolHandler handler = urlRequest -> {
-            if (requestProcessor.canProcessRequest(urlRequest.getURL())) {
-                String data = null;
-                String url1 = urlRequest.getURL();
-                UploadData uploadData = (urlRequest.getUploadData() != null) ? urlRequest.getUploadData() : jxPUTDeleteBugFix.get(urlRequest.getRequestId());
-                jxPUTDeleteBugFix.remove(urlRequest.getRequestId());
-
-                if (uploadData != null) {
-                    if (uploadData.getType() == UploadDataType.BYTES) {
+    public void addPMAPIProtocolHandler(Engine engine) {
+        engine.network().set(InterceptRequestCallback.class, params -> {
+            RequestProcessor requestProcessor = new RequestProcessor(PlatformImpl.getInstance());
+            String url = params.urlRequest().url();
+            if (requestProcessor.canProcessRequest(url)) {
+                AtomicReference<String> data = new AtomicReference<>();
+                params.uploadData().ifPresent(uploadData -> {
+                    if (uploadData instanceof TextData) {
+                        data.set(((TextData) uploadData).data());
+                    } else if (uploadData instanceof BytesData) {
                         BytesData bytesData = (BytesData) uploadData;
-                        data = new String(bytesData.getData());
+                        data.set(new String(bytesData.data()));
+                    } else if (uploadData instanceof MultipartFormData) {
+                        MultipartFormData multipartFormData = (MultipartFormData) uploadData;
+                        List<MultipartFormData.Pair> files = multipartFormData.data();
+                        if (files.size() > 1) {
+                            throw new RuntimeException("pmapi can't process multipart with more than one file");
+                        }
+                        files.get(0).fileValue().map(File::pathValue).map(Optional::get).ifPresent(data::set);
                     }
-                }
+                });
 
                 Map<String, String> headers = new HashMap<>();
-                if (urlRequest.getRequestHeaders() != null) {
-                    Map<String, List<String>> inputHeaders = urlRequest.getRequestHeaders().getHeaders();
-                    for (String inputHeader : inputHeaders.keySet()) {
-                        headers.put(inputHeader, inputHeaders.get(inputHeader).get(0));
+                if (params.httpHeaders() != null) {
+                    for (HttpHeader httpHeader : params.httpHeaders()) {
+                        headers.put(httpHeader.name(), httpHeader.value());
                     }
                 }
 
-                com.ge.predix.mobile.network.URLResponse pmResponse = requestProcessor.processRequest(url1, urlRequest.getMethod(), data, headers);
+                UrlRequest urlRequest = params.urlRequest();
+                URLResponse response = requestProcessor.processRequest(url, urlRequest.method(), data.get(), headers);
+                byte[] rawData = convertPMAPIResponseToBytes(response);
 
-                byte[] responseData = new byte[0];
-                try {
-                    final int bufferSize = 1024;
-                    final char[] buffer = new char[bufferSize];
-                    final StringBuilder out = new StringBuilder();
-                    Reader in = new InputStreamReader(pmResponse.bodyInputStream(), StandardCharsets.UTF_8);
-                    while (true) {
-                        int bytesRead = in.read(buffer, 0, buffer.length);
-                        if (bytesRead < 0)
-                            break;
-                        out.append(buffer, 0, bytesRead);
-                    }
-                    responseData = out.toString().getBytes(StandardCharsets.UTF_8);
+                UrlRequestJob.Options.Builder optionsBuilder = UrlRequestJob.Options.newBuilder(params.urlRequest().id(), HttpStatusWrapper.of(response.statusCode()));
 
-                } catch (IOException e) {
-                    PredixSDKLogger.error(this, "could not deserialize PMAPI response body", e);
-                }
+                response.getHeaders().forEach((k, v) -> v.forEach(c -> optionsBuilder.addHttpHeader(HttpHeaderWrapper.of(k, c))));
 
-                URLResponse urlResponse = new URLResponse(responseData, HttpStatus.from(pmResponse.statusCode()));
-                Map<String, List<String>> responseHeaders = pmResponse.getHeaders();
-                for (String key : responseHeaders.keySet()) {
-                    List<String> value = responseHeaders.get(key);
-                    urlResponse.getHeaders().setHeaders(key, value);
-                }
-                return urlResponse;
+                UrlRequestJob urlRequestJob = engine.network().newUrlRequestJob(optionsBuilder.build());
+                urlRequestJob.write(rawData);
+                urlRequestJob.complete();
+
+                return InterceptRequestCallback.Response.intercept(urlRequestJob);
             }
 
-            return null;
-        };
-        context.getProtocolService().setProtocolHandler("http", handler);
-        context.getProtocolService().setProtocolHandler("https", handler);
-        context.getNetworkService().setNetworkDelegate(new DefaultNetworkDelegate() {
-
-            @Override
-            public void onBeforeURLRequest(BeforeURLRequestParams params) {
-                if ("put".equalsIgnoreCase(params.getMethod()) && params.getUploadData() != null) {
-                    jxPUTDeleteBugFix.put(params.getRequestId(), params.getUploadData());
-                }
-                super.onBeforeURLRequest(params);
-            }
-
-
+            return InterceptRequestCallback.Response.proceed();
         });
     }
+
+    private byte[] convertPMAPIResponseToBytes(URLResponse pmResponse) {
+        byte[] responseData = new byte[0];
+        if (pmResponse.bodyInputStream() != null) {
+            try {
+                final int bufferSize = 1024;
+                final byte[] buffer = new byte[bufferSize];
+                final ByteArrayOutputStream out = new ByteArrayOutputStream();
+                BufferedInputStream in = new BufferedInputStream(pmResponse.bodyInputStream());
+                while (true) {
+                    int bytesRead = in.read(buffer, 0, buffer.length);
+                    if (bytesRead < 0)
+                        break;
+                    out.write(buffer, 0, bytesRead);
+                }
+                responseData = out.toByteArray();
+
+            } catch (IOException e) {
+                PredixSDKLogger.error(this, "could not deserialize PMAPI response body", e);
+            }
+        }
+        return responseData;
+    }
+
 }

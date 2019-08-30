@@ -3,11 +3,9 @@ package com.ge.predix.mobile;
 import com.ge.predix.mobile.logging.PredixSDKLogger;
 import com.ge.predix.mobile.platform.CustomSchemeHandler;
 import com.ge.predix.mobile.platform.WaitStateModel;
-import com.teamdev.jxbrowser.chromium.Browser;
-import com.teamdev.jxbrowser.chromium.BrowserCore;
-import com.teamdev.jxbrowser.chromium.BrowserPreferences;
-import com.teamdev.jxbrowser.chromium.internal.Environment;
-import com.teamdev.jxbrowser.chromium.javafx.BrowserView;
+import com.teamdev.jxbrowser.browser.Browser;
+import com.teamdev.jxbrowser.engine.Engine;
+import com.teamdev.jxbrowser.view.javafx.BrowserView;
 import javafx.application.Platform;
 import javafx.scene.Group;
 import javafx.scene.Scene;
@@ -19,34 +17,26 @@ import javafx.stage.StageStyle;
 import java.util.Map;
 
 public class JXWindowController implements ApplicationWindowView {
-    private Browser browser = null;
+    private Browser browser;
     private BrowserView view = null;
     private WaitStateModel waitStateModel;
     private SpinnerView spinnerView;
     private Pane rootPane;
+    private Engine engine;
 
-    public static void initWebEngine() {
-        BrowserPreferences.setChromiumSwitches("--remote-debugging-port=9222");
-        if (Environment.isMac()) {
-            BrowserCore.initialize();
-        }
-    }
-
-    public JXWindowController() {
+    public JXWindowController(Engine engine) {
         super();
+        this.engine = engine;
     }
 
     public void loadURL(final String url, Map map) {
         new Thread(() -> {
-            browser = new Browser();
-            PredixSDKLogger.debug("browser debug url = " + browser.getRemoteDebuggingURL());
-            view = new BrowserView(browser);
-
-            JXPMAPIRequestHandler jxpmapiRequestHandler = new JXPMAPIRequestHandler();
-            jxpmapiRequestHandler.addPMAPIProtocolHandler(browser.getContext());
+            browser = engine.newBrowser();
+            PredixSDKLogger.debug("browser debug url = " + browser.devTools().remoteDebuggingUrl());
+            view = BrowserView.newInstance(browser);
 
             Platform.runLater(() -> {
-                browser.loadURL(url);
+                browser.navigation().loadUrl(url);
                 rootPane.getChildren().addAll(view);
                 startSpinner("Syncing, please wait...");
             });
@@ -54,7 +44,7 @@ public class JXWindowController implements ApplicationWindowView {
     }
 
     public void receiveAppNotification(String script) {
-        Platform.runLater(() -> browser.executeJavaScript(script));
+        browser.mainFrame().ifPresent(frame -> frame.executeJavaScript(script));
     }
 
     public void showDialog(String s, String s1, String s2) {

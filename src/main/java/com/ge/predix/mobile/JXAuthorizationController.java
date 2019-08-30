@@ -2,67 +2,44 @@ package com.ge.predix.mobile;
 
 import com.ge.predix.mobile.core.AuthHandler;
 import com.ge.predix.mobile.core.AuthHandlerCallback;
-import com.teamdev.jxbrowser.chromium.*;
-import com.teamdev.jxbrowser.chromium.javafx.BrowserView;
+import com.teamdev.jxbrowser.browser.Browser;
+import com.teamdev.jxbrowser.browser.callback.CertificateErrorCallback;
+import com.teamdev.jxbrowser.engine.Engine;
+import com.teamdev.jxbrowser.navigation.event.FrameLoadFailed;
+import com.teamdev.jxbrowser.navigation.event.FrameLoadFinished;
+import com.teamdev.jxbrowser.navigation.event.NavigationStarted;
+import com.teamdev.jxbrowser.net.NetError;
+import com.teamdev.jxbrowser.view.javafx.BrowserView;
 import javafx.application.Platform;
 import javafx.scene.layout.Pane;
-
-import java.net.*;
-import java.util.List;
 
 public class JXAuthorizationController implements AuthHandler {
 
     private final Pane rootPane;
     private SpinnerView spinnerView;
+    private Browser browser;
+    private BrowserView view;
     private AuthHandlerCallback authHandlerCallback;
-    private Browser browser = new Browser();
-    private BrowserView view = new BrowserView(browser);
 
-    JXAuthorizationController(Pane rootPane) {
+    JXAuthorizationController(Pane rootPane, Engine engine) {
         this.rootPane = rootPane;
-        browser.getContext().getAutofillService().setEnabled(false);
-        browser.setLoadHandler(new LoadHandler() {
-            @Override
-            public boolean onLoad(LoadParams loadParams) {
-                List<Cookie> cookies = browser.getCookieStorage().getAllCookies();
-                CookieManager manager = (CookieManager) CookieHandler.getDefault();
-                copyBrowserCookiesToJavaCookieStore(cookies, manager);
-                if (authHandlerCallback != null) {
-                    return authHandlerCallback.urlIsAuthenticateRedirect(loadParams.getURL());
-                }
+        this.browser = engine.newBrowser();
+        this.view = BrowserView.newInstance(browser);
 
-                return false;
-            }
+        browser.set(CertificateErrorCallback.class,(params, tell) -> tell.allow());
+        browser.navigation().on(NavigationStarted.class, event -> startSpinner());
+        browser.navigation().on(FrameLoadFinished.class, event -> stopSpinner());
 
-            @Override
-            public boolean onCertificateError(CertificateErrorParams certificateErrorParams) {
-                return false;
-            }
+        browser.navigation().on(FrameLoadFailed.class, event -> {
+            NetError error = event.error();
+            authHandlerCallback.authenticationEncounteredError(error.toString());
+            stopSpinner();
         });
-
-        JXPMAPIRequestHandler jxpmapiRequestHandler = new JXPMAPIRequestHandler();
-        jxpmapiRequestHandler.addPMAPIProtocolHandler(browser.getContext());
-    }
-
-    private void copyBrowserCookiesToJavaCookieStore(List<Cookie> cookies, CookieManager manager) {
-        for (Cookie cookie : cookies) {
-            try {
-                HttpCookie httpCookie = new HttpCookie(cookie.getName(), cookie.getValue());
-                httpCookie.setPath(cookie.getPath());
-                httpCookie.setDomain(cookie.getDomain());
-                httpCookie.setHttpOnly(cookie.isHTTPOnly());
-                httpCookie.setSecure(cookie.isSecure());
-                httpCookie.setVersion(0);
-                if (!cookie.isSession())
-                    httpCookie.setMaxAge(cookie.getExpirationTime());
-                manager.getCookieStore().add(new URI(cookie.getDomain() + cookie.getPath()), httpCookie);
-            } catch (URISyntaxException ignore) {}
-        }
     }
 
     private void showView(final String url) {
         Platform.runLater(() -> {
-            browser.loadURL(url);
+            browser.navigation().loadUrl(url);
             if (!rootPane.getChildren().contains(view)) {
                 rootPane.getChildren().add(view);
                 startSpinner();
@@ -73,7 +50,7 @@ public class JXAuthorizationController implements AuthHandler {
     private void hideView() {
         if (!rootPane.getChildren().contains(view)) return;
         Platform.runLater(() -> {
-            browser.loadURL("");
+            browser.navigation().loadUrl("about:blank");
             rootPane.getChildren().remove(view);
             stopSpinner();
         });
@@ -101,5 +78,4 @@ public class JXAuthorizationController implements AuthHandler {
     public void hideAuthenticationUI() {
         hideView();
     }
-
 }

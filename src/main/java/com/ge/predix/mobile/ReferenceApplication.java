@@ -1,13 +1,15 @@
 package com.ge.predix.mobile;
 
-import com.ge.predix.mobile.core.AuthHandler;
-import com.ge.predix.mobile.core.MobileManager;
-import com.ge.predix.mobile.core.ViewInterface;
+import com.ge.predix.mobile.core.*;
 import com.ge.predix.mobile.core.notifications.InitialReplicationCompleteNotification;
 import com.ge.predix.mobile.exceptions.InitializationException;
+import com.ge.predix.mobile.platform.CookieStorage;
 import com.ge.predix.mobile.platform.PlatformContext;
 import com.ge.predix.mobile.platform.WindowView;
 import com.google.common.eventbus.Subscribe;
+import com.teamdev.jxbrowser.engine.Engine;
+import com.teamdev.jxbrowser.engine.EngineOptions;
+import com.teamdev.jxbrowser.engine.RenderingMode;
 import de.codecentric.centerdevice.MenuToolkit;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -22,11 +24,8 @@ import javafx.stage.Stage;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
+import java.net.*;
+import java.util.*;
 
 /**
  * ReferenceApplication
@@ -39,8 +38,11 @@ public class ReferenceApplication extends Application {
     private MobileManager mobileManager;
     private PreferencesController preferencesController = new PreferencesController();
     private static final String Application_Name = "MFL Reference Application";
+    private Engine engine;
+    private JXPMAPIRequestHandler jxpmapiRequestHandler = new JXPMAPIRequestHandler();
 
     public static void main(String[] args) throws InitializationException {
+        System.setProperty("jxbrowser.license.key", "1BNDJDKIKHR00IIN66FDTNO6HGGV00XK41L8RN7WNFAS4Z49KFE7M2V3S8RAJDA0UZ0OH0");
         launch(args);
     }
 
@@ -50,7 +52,6 @@ public class ReferenceApplication extends Application {
 
     @Override
     public void init() throws Exception {
-        JXWindowController.initWebEngine();
         super.init();
     }
 
@@ -70,8 +71,12 @@ public class ReferenceApplication extends Application {
         Parameters parameters = getParameters();
 
         if (parameters.getNamed().containsKey("chrome")) {
-            windowView = new JXWindowController();
-            authHandler = new JXAuthorizationController(stackPane);
+            engine = Engine.newInstance(EngineOptions.newBuilder(RenderingMode.HARDWARE_ACCELERATED)
+                    .remoteDebuggingPort(9222)
+                    .allowFileAccessFromFiles()
+                    .build());
+            windowView = new JXWindowController(engine);
+            authHandler = new JXAuthorizationController(stackPane, engine);
         } else {
             windowView = new WindowController();
             authHandler = new AuthorizationController(stackPane);
@@ -80,6 +85,14 @@ public class ReferenceApplication extends Application {
         windowView.show(stackPane);
         primaryStage.show();
         startPredixMobile(authHandler, windowView);
+    }
+
+    @Override
+    public void stop() throws Exception {
+        super.stop();
+        if (engine != null) {
+            engine.close();
+        }
     }
 
     private boolean isMac() {
@@ -158,12 +171,21 @@ public class ReferenceApplication extends Application {
             }
         };
 
+        if (engine != null) {
+            jxpmapiRequestHandler.addPMAPIProtocolHandler(engine);
+        }
         mobileManager.setViewInterface(dependencies);
         new Thread(() -> {
             loadProxyIfNeeded();
             try {
                 mobileManager.start();
                 mobileManager.getNotificationRegistrar().registerListener(this);
+                if (engine != null) {
+                    //Allow the Predix SDK and the JxBrowser to share the same cookie store.  This has to be done after start is called.
+                    CookieStorage cookieStorage = new HTTPCookieStorage(new CookieManager(new JxBrowserCookieStore(engine.cookieStore()), CookiePolicy.ACCEPT_ALL));
+                    mobileManager.setCookieStorage(cookieStorage);
+                    PlatformDecorator.updateCookieStore(cookieStorage);
+                }
             } catch (InitializationException e) {
                 e.printStackTrace();
             }
